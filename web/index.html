@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AquaGuard – Live Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>💧 AquaGuard – Live Dashboard</h1>
+    <p class="subtitle">Group 10 · IE University</p>
+  </header>
+
+  <main>
+    <section id="status" class="card">
+      <h2>Status</h2>
+      <div class="status-row">
+        <span id="conn-dot" class="dot"></span>
+        <span id="conn-text">Disconnected</span>
+        <span id="via" class="via">via —</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h3>Flow</h3>
+        <p class="metric"><span id="flow">—</span> <span class="unit">L/min</span></p>
+      </div>
+      <div class="card">
+        <h3>Humidity</h3>
+        <p class="metric"><span id="humidity">—</span> <span class="unit">%</span></p>
+      </div>
+      <div class="card">
+        <h3>Flowing</h3>
+        <p class="metric"><span id="flowing">—</span></p>
+      </div>
+    </section>
+
+    <section id="banner" class="banner hidden">
+      <strong id="banner-title">Emergency</strong>
+      <span id="banner-text">—</span>
+      <a id="emergency-link" href="tel:112" class="btn">Call emergency</a>
+    </section>
+  </main>
+
+  <footer>
+    <p>Mode: <code id="mode">TCP/SIM</code> · <small>Refreshes in real time (SSE)</small></p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AquaGuard – Group 10 (IE University)</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="deck">
+    <section class="slide">
+      <h1>💧 AquaGuard</h1>
+      <h2>C Data Platform – Group 10</h2>
+      <p>Live leak-detection dashboard in C with a Python simulator</p>
+    </section>
+
+    <section class="slide">
+      <h2>Goal</h2>
+      <ul>
+        <li>Read sensor data from TCP simulator or internal SIM</li>
+        <li>Serve dashboard on <code>http://localhost:8080</code></li>
+        <li>Show flow, humidity, flowing, connection state</li>
+        <li>Emergency banner for LEAK / HIGH_FLOW</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <h2>Architecture</h2>
+      <ul>
+        <li><strong>sensor thread</strong>: TCP client → JSON parser → shared state</li>
+        <li><strong>http thread</strong>: HTTP + Server-Sent Events</li>
+        <li><strong>web UI</strong>: HTML/CSS/JS updates via SSE</li>
+      </ul>
+      <pre>
+C (pthread, sockets) ─┬─ Sensor
+                      └─ HTTP/SSE  →  Browser UI
+Python (Tkinter)     ── TCP Simulator
+      </pre>
+    </section>
+
+    <section class="slide">
+      <h2>Design Choices</h2>
+      <ul>
+        <li>Threads to isolate I/O paths and keep UI responsive</li>
+        <li>SSE over WebSockets for simplicity (one-way push)</li>
+        <li>Minimal JSON parser tailored to known schema</li>
+        <li>Defensive error handling & reconnection backoff</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <h2>Project Hygiene</h2>
+      <ul>
+        <li>CMake + CTest, GitHub CI</li>
+        <li>Conda environment</li>
+        <li>Clear README & scripts</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <h2>Demo</h2>
+      <ol>
+        <li>Run simulator</li>
+        <li>Run gateway</li>
+        <li>Open dashboard</li>
+        <li>Toggle Leak / High Flow</li>
+      </ol>
+    </section>
+
+    <section class="slide">
+      <h2>Learnings</h2>
+      <ul>
+        <li>Threading, sockets, SSE, and robust error handling</li>
+        <li>Iterative design & testable boundaries (parser)</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <h2>Thanks</h2>
+      <p>Questions?</p>
+    </section>
+  </div>
+
+  <script src="slides.js"></script>
+</body>
+</html>

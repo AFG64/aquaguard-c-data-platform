@@ -1,0 +1,8 @@
+name: aquaguard-c
+channels:
+  - conda-forge
+dependencies:
+  - python >=3.10
+  - cmake
+  - make
+  - gcc  # optional on Linux (remove on macOS if it conflicts)
