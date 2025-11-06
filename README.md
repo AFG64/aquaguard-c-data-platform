@@ -87,8 +87,8 @@ Open: http://localhost:8080
 **Group 10**  
 - ADRIA FIJO GARRIGA  
 - HERNAN CHACON  
-- XX  
-- XX
+- JAD EL AAWAR
+- ZAID AYMAN SHAFIK JUMEAN
 
 
 **Note:** The simulator now sends valid JSON using `json.dumps`, ensuring booleans are lowercase `true/false`.
