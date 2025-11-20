@@ -48,14 +48,48 @@ static const char* guess_ctype(const char* p) {
     return "text/plain";
 }
 
+static void cat_safe(char* dst, size_t dstsz, const char* src) {
+    size_t len = strlen(dst);
+    if (len >= dstsz-1) return;
+    strncat(dst, src, dstsz - len - 1);
+}
+
+static void build_alerts(AlertFlags mask, char* list_out, size_t list_sz, char* summary_out, size_t sum_sz) {
+    int first = 1;
+    list_out[0] = '['; list_out[1] = 0;
+    summary_out[0] = 0;
+    #define ADD(alert_flag, code, label) \
+        if (mask & alert_flag) { \
+            if (!first) { cat_safe(list_out, list_sz, ","); cat_safe(summary_out, sum_sz, ", "); } \
+            cat_safe(list_out, list_sz, "\"" code "\""); \
+            cat_safe(summary_out, sum_sz, label); \
+            first = 0; \
+        }
+    ADD(ALERTF_HIGH_FLOW, "HIGH_FLOW", "High flow");
+    ADD(ALERTF_LOW_FLOW, "LOW_FLOW", "Low flow");
+    ADD(ALERTF_HIGH_HUMIDITY, "HIGH_HUMIDITY", "High humidity");
+    ADD(ALERTF_HIGH_TEMP, "HIGH_TEMP", "High temperature");
+    ADD(ALERTF_HIGH_PRESSURE, "HIGH_PRESSURE", "High pressure");
+    #undef ADD
+
+    if (first) {
+        strncpy(list_out, "[]", list_sz);
+        list_out[list_sz-1] = 0;
+        strncpy(summary_out, "None", sum_sz);
+        summary_out[sum_sz-1] = 0;
+        return;
+    }
+    cat_safe(list_out, list_sz, "]");
+}
+
 static void json_for_current(SensorData* d, char* out, size_t outsz) {
-    const char* alert = "NONE";
-    if (d->alert == ALERT_LEAK) alert = "LEAK";
-    else if (d->alert == ALERT_HIGH_FLOW) alert = "HIGH_FLOW";
     const char* conn = d->conn == CONN_CONNECTED ? "CONNECTED" : "DISCONNECTED";
+    char alert_list[128];
+    char alert_summary[128];
+    build_alerts(d->alerts_mask, alert_list, sizeof(alert_list), alert_summary, sizeof(alert_summary));
     snprintf(out, outsz,
-        "{ \"flow_lpm\": %.2f, \"humidity_pct\": %.2f, \"flowing\": %s, \"alert\": \"%s\", \"connection\": \"%s\", \"via\": \"%s\", \"seq\": %llu }",
-        d->flow_lpm, d->humidity_pct, d->flowing ? "true":"false", alert, conn, d->via, (unsigned long long)d->last_seq);
+        "{ \"flow_lpm\": %.2f, \"humidity_pct\": %.2f, \"temperature_c\": %.2f, \"pressure_kpa\": %.2f, \"alerts\": %s, \"connection\": \"%s\", \"via\": \"%s\", \"seq\": %llu, \"alert_summary\": \"%s\" }",
+        d->flow_lpm, d->humidity_pct, d->temperature_c, d->pressure_kpa, alert_list, conn, d->via, (unsigned long long)d->last_seq, alert_summary);
 }
 
 typedef struct { int fd; SharedState* st; } client_ctx;
@@ -86,7 +120,7 @@ static void* handle_client(void* arg) {
             SensorData snap = st->data;
             pthread_mutex_unlock(&st->mu);
             if (seq != last) {
-                char json[256];
+                char json[384];
                 json_for_current(&snap, json, sizeof(json));
                 dprintf(fd, "data: %s\n\n", json);
                 last = seq;

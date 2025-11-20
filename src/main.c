@@ -11,6 +11,11 @@
 
 static volatile int running = 1;
 static void on_sigint(int s) { (void)s; running = 0; }
+static void ignore_sigpipe(void) {
+#ifdef SIGPIPE
+    signal(SIGPIPE, SIG_IGN);
+#endif
+}
 
 int main(int argc, char** argv) {
     SharedState st;
@@ -49,6 +54,7 @@ int main(int argc, char** argv) {
         st.mode_tcp ? "tcp":"sim", st.tcp_host, st.tcp_port, st.web_port);
 
     signal(SIGINT, on_sigint);
+    ignore_sigpipe(); // prevent exit when clients close sockets (e.g., page reloads)
 
     pthread_t th_sensor, th_http;
     if (st.mode_tcp) pthread_create(&th_sensor, NULL, sensor_thread_tcp, &st);

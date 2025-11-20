@@ -3,6 +3,6 @@ channels:
   - conda-forge
 dependencies:
   - python >=3.10
+  - tk            # tkinter runtime for the simulator GUI
   - cmake
   - make
-  - gcc  # optional on Linux (remove on macOS if it conflicts)

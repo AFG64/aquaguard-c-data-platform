@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <time.h>
+#include <math.h>
 #include "sensor.h"
 #include "json.h"
 #include "log.h"
@@ -112,25 +113,39 @@ static float clamp(float v, float lo, float hi) {
     return v;
 }
 
+static AlertFlags eval_alerts(float flow, float hum, float temp, float pressure) {
+    AlertFlags mask = ALERTF_NONE;
+    if (!isnan(flow) && flow > FLOW_HIGH_EMERGENCY_THRESHOLD) mask |= ALERTF_HIGH_FLOW;
+    if (!isnan(flow) && flow < FLOW_LOW_EMERGENCY_THRESHOLD)  mask |= ALERTF_LOW_FLOW;
+    if (!isnan(hum) && hum > HUMIDITY_EMERGENCY_THRESHOLD) mask |= ALERTF_HIGH_HUMIDITY;
+    if (!isnan(temp) && temp > TEMP_EMERGENCY_THRESHOLD) mask |= ALERTF_HIGH_TEMP;
+    if (!isnan(pressure) && pressure > PRESSURE_EMERGENCY_THRESHOLD) mask |= ALERTF_HIGH_PRESSURE;
+    return mask;
+}
+
 void* sensor_thread_sim(void* arg) {
     SharedState* st = (SharedState*)arg;
     srand((unsigned int)time(NULL));
     float flow = 2.0f;
     float hum = 40.0f;
+    float temp = 22.0f;
+    float pressure = 101.3f;
     int t = 0;
     for (;;) {
         flow = clamp(flow + ((rand()%200-100)/1000.0f), 0.f, 50.f);
         hum  = clamp(hum  + ((rand()%200-100)/1000.0f), 10.f, 90.f);
+        temp = clamp(temp + ((rand()%200-100)/500.0f), -10.f, 60.f);
+        pressure = clamp(pressure + ((rand()%200-100)/500.0f), 90.f, 130.f);
         int flowing = flow > 0.5f;
-        AlertStatus alert = ALERT_NONE;
-        if (flow > 20.0f) alert = ALERT_HIGH_FLOW;
-        if (t % 37 == 0 && t > 0) alert = ALERT_LEAK;
+        AlertFlags alerts = eval_alerts(flow, hum, temp, pressure);
 
         pthread_mutex_lock(&st->mu);
         st->data.flow_lpm = flow;
         st->data.humidity_pct = hum;
+        st->data.temperature_c = temp;
+        st->data.pressure_kpa = pressure;
         st->data.flowing = flowing;
-        st->data.alert = alert;
+        st->data.alerts_mask = alerts;
         st->data.conn = CONN_CONNECTED;
         snprintf(st->data.via, sizeof(st->data.via), "SIM");
         st->data.last_seq++;

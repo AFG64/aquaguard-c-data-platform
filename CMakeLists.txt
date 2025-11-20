@@ -11,6 +11,9 @@ add_library(aquaguard_lib
     src/http.c
 )
 target_include_directories(aquaguard_lib PUBLIC include)
+if(NOT WIN32)
+  target_link_libraries(aquaguard_lib PRIVATE m)
+endif()
 
 find_package(Threads REQUIRED)
 
@@ -21,6 +24,9 @@ target_link_libraries(aquaguard PRIVATE aquaguard_lib Threads::Threads)
 enable_testing()
 add_executable(unit_tests tests/test_parser.c src/json.c)
 target_include_directories(unit_tests PRIVATE include)
+if(NOT WIN32)
+  target_link_libraries(unit_tests PRIVATE m)
+endif()
 add_test(NAME parser_test COMMAND unit_tests)
 
 # Install (optional)

@@ -11,9 +11,8 @@ class SimulatorServer:
     def __init__(self):
         self.flow = 2.0
         self.humidity = 40.0
-        self.flowing = True
-        self.leak = False
-        self.high_flow = False
+        self.temperature = 22.0
+        self.pressure = 101.3
         self.running = False
         self._server_thread = None
         self._client = None
@@ -61,9 +60,9 @@ class SimulatorServer:
                                 msg = {
                                     "flow_lpm": float(self.flow),
                                     "humidity_pct": float(self.humidity),
-                                    "flowing": bool(self.flowing),
-                                    "leak": bool(self.leak),
-                                    "high_flow": bool(self.high_flow),
+                                    "temperature_c": float(self.temperature),
+                                    "pressure_kpa": float(self.pressure),
+                                    "flowing": bool(self.flow > 0.1),
                                 }
                             line = (str(msg).replace("'", '"') + "\n").encode('utf-8')
                             c.sendall(line)
@@ -80,24 +79,24 @@ server = SimulatorServer()
 def run_gui():
     root = tk.Tk()
     root.title("AquaGuard Simulator")
-    root.geometry("360x360")
+    root.geometry("380x520")
 
     def start():
         server.start()
         status.configure(text="Server: RUNNING", fg="#58d68d")
+        update_toggle()
     def stop():
         server.stop()
         status.configure(text="Server: STOPPED", fg="#ec7063")
+        update_toggle()
     def set_flow(v):
         with server._lock: server.flow = float(v)
     def set_hum(v):
         with server._lock: server.humidity = float(v)
-    def set_flowing():
-        with server._lock: server.flowing = bool(flowing_var.get())
-    def set_leak():
-        with server._lock: server.leak = bool(leak_var.get())
-    def set_high():
-        with server._lock: server.high_flow = bool(high_var.get())
+    def set_temp(v):
+        with server._lock: server.temperature = float(v)
+    def set_pressure(v):
+        with server._lock: server.pressure = float(v)
 
     tk.Label(root, text="AquaGuard TCP Simulator", font=("Helvetica", 14, "bold")).pack(pady=6)
     status = tk.Label(root, text="Server: STOPPED", fg="#ec7063")
@@ -113,19 +112,27 @@ def run_gui():
     hum = tk.Scale(frm, from_=10, to=90, orient='horizontal', resolution=0.1, command=set_hum)
     hum.set(server.humidity); hum.pack(fill=tk.X)
 
-    flowing_var = tk.IntVar(value=1 if server.flowing else 0)
-    leak_var = tk.IntVar(value=1 if server.leak else 0)
-    high_var = tk.IntVar(value=1 if server.high_flow else 0)
+    tk.Label(frm, text="Temperature (C)").pack(anchor='w', pady=(8,0))
+    temp = tk.Scale(frm, from_=-10, to=60, orient='horizontal', resolution=0.1, command=set_temp)
+    temp.set(server.temperature); temp.pack(fill=tk.X)
 
-    tk.Checkbutton(root, text="Flowing", variable=flowing_var, command=set_flowing).pack(anchor='w', padx=10)
-    tk.Checkbutton(root, text="Leak", variable=leak_var, command=set_leak).pack(anchor='w', padx=10)
-    tk.Checkbutton(root, text="High flow", variable=high_var, command=set_high).pack(anchor='w', padx=10)
+    tk.Label(frm, text="Pressure (kPa)").pack(anchor='w', pady=(8,0))
+    pressure = tk.Scale(frm, from_=70, to=130, orient='horizontal', resolution=0.1, command=set_pressure)
+    pressure.set(server.pressure); pressure.pack(fill=tk.X)
 
     btns = tk.Frame(root); btns.pack(pady=10)
-    tk.Button(btns, text="Start Server", command=start, width=14).grid(row=0, column=0, padx=6)
-    tk.Button(btns, text="Stop Server", command=stop, width=14).grid(row=0, column=1, padx=6)
+    toggle_btn = tk.Button(btns, text="Start Server", command=start, width=14)
+    toggle_btn.grid(row=0, column=0, padx=6)
+
+    def update_toggle():
+        # Keep a single button in place; flip text/command based on running state
+        if server.running:
+            toggle_btn.configure(text="Stop Server", command=stop)
+        else:
+            toggle_btn.configure(text="Start Server", command=start)
 
     tk.Label(root, text=f"Host: {HOST}   Port: {PORT}", fg="#95a5a6").pack(pady=(4,0))
+    update_toggle()
 
     root.mainloop()
 

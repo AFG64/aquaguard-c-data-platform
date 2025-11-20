@@ -1,52 +1,143 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AquaGuard – Live Dashboard</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="preconnect" href="/" />
 </head>
 <body>
-  <header>
-    <h1>💧 AquaGuard – Live Dashboard</h1>
-    <p class="subtitle">Group 10 · IE University</p>
-  </header>
-
-  <main>
-    <section id="status" class="card">
-      <h2>Status</h2>
-      <div class="status-row">
-        <span id="conn-dot" class="dot"></span>
-        <span id="conn-text">Disconnected</span>
-        <span id="via" class="via">via —</span>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo"><img src="/assets/logo_aquagruard.png" alt="AquaGuard logo" class="logo-img" /></div>
+        <div class="brand-text">
+          <h1>AquaGuard</h1>
+          <p>Live Dashboard</p>
+        </div>
       </div>
-    </section>
 
-    <section class="grid">
-      <div class="card">
-        <h3>Flow</h3>
-        <p class="metric"><span id="flow">—</span> <span class="unit">L/min</span></p>
-      </div>
-      <div class="card">
-        <h3>Humidity</h3>
-        <p class="metric"><span id="humidity">—</span> <span class="unit">%</span></p>
-      </div>
-      <div class="card">
-        <h3>Flowing</h3>
-        <p class="metric"><span id="flowing">—</span></p>
-      </div>
-    </section>
+      <div class="status-card">
+        <div class="status-header">
+          <span class="pill" id="conn-pill">
+            <span class="dot" id="conn-dot"></span>
+            <span id="conn-text">Disconnected</span>
+          </span>
+          <span class="mode-pill" title="Data source">
+            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <code id="mode">—</code>
+          </span>
+        </div>
 
-    <section id="banner" class="banner hidden">
-      <strong id="banner-title">Emergency</strong>
-      <span id="banner-text">—</span>
-      <a id="emergency-link" href="tel:112" class="btn">Call emergency</a>
-    </section>
-  </main>
+        <div class="kv">
+          <div>
+            <span class="k">Connection</span>
+            <span class="v" id="via">via —</span>
+          </div>
+          <div>
+            <span class="k">Last update</span>
+            <span class="v" id="last-updated">—</span>
+          </div>
+        </div>
 
-  <footer>
-    <p>Mode: <code id="mode">TCP/SIM</code> · <small>Refreshes in real time (SSE)</small></p>
-  </footer>
+        <button id="test-tone" class="btn btn-ghost" type="button" aria-label="Test alert sound">
+          🔔 Test alert
+        </button>
+      </div>
+
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot ok"></span>Normal</span>
+        <span class="legend-item"><span class="legend-dot warn"></span>Humidity alert</span>
+        <span class="legend-item"><span class="legend-dot err"></span>Temp/Pressure alert</span>
+      </div>
+
+      <footer class="sidebar-footer">
+        <small>Group 10 · IE University</small>
+        <small>Refreshing in real time (SSE)</small>
+      </footer>
+    </aside>
+
+    <main class="main">
+      <section class="topbar">
+        <div class="title">
+          <h2>Overview</h2>
+          <p class="subtitle">Live metrics from gateway</p>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card metric-card">
+          <header>
+            <h3>Flow</h3>
+            <span class="trend" id="flow-trend" aria-live="polite">—</span>
+          </header>
+          <div class="metric">
+            <span id="flow" class="value">—</span>
+            <span class="unit">L/min</span>
+          </div>
+          <canvas id="flow-spark" width="320" height="64" aria-hidden="true"></canvas>
+        </article>
+
+        <article class="card metric-card">
+          <header>
+            <h3>Humidity</h3>
+            <span class="trend" id="hum-trend" aria-live="polite">—</span>
+          </header>
+          <div class="metric">
+            <span id="humidity" class="value">—</span>
+            <span class="unit">%</span>
+          </div>
+          <canvas id="hum-spark" width="320" height="64" aria-hidden="true"></canvas>
+        </article>
+
+        <article class="card metric-card">
+          <header>
+            <h3>Temperature</h3>
+            <span class="trend" id="temp-trend" aria-live="polite">—</span>
+          </header>
+          <div class="metric">
+            <span id="temperature" class="value">—</span>
+            <span class="unit">°C</span>
+          </div>
+          <canvas id="temp-spark" width="320" height="64" aria-hidden="true"></canvas>
+        </article>
+
+        <article class="card metric-card">
+          <header>
+            <h3>Pressure</h3>
+            <span class="trend" id="pressure-trend" aria-live="polite">—</span>
+          </header>
+          <div class="metric">
+            <span id="pressure" class="value">—</span>
+            <span class="unit">kPa</span>
+          </div>
+          <canvas id="pressure-spark" width="320" height="64" aria-hidden="true"></canvas>
+        </article>
+      </section>
+
+      <section id="banner" class="banner hidden" role="alert" aria-live="assertive">
+        <div class="banner-icon" id="banner-icon">⚠️</div>
+        <div class="banner-content">
+          <strong id="banner-title">Emergency</strong>
+          <span id="banner-text">—</span>
+        </div>
+        <a id="emergency-link" href="tel:112" class="btn btn-danger">Call emergency</a>
+      </section>
+
+      <section class="log card" aria-label="Event log">
+        <header class="log-header">
+          <h3>Recent events</h3>
+          <button id="clear-log" class="btn btn-ghost" type="button">Clear</button>
+        </header>
+        <ul id="event-log" class="log-list"></ul>
+      </section>
+    </main>
+  </div>
+
+  <audio id="alert-sound" preload="auto">
+    <source src="data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=" type="audio/wav" />
+  </audio>
 
   <script src="/app.js"></script>
 </body>
