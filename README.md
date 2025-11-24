@@ -163,10 +163,10 @@ AquaGuard simulates a smart water safety network: a Python GUI streams sensor JS
 
 ## Credits
 **Group 10**  
-- ADRIA FIJO GARRIGA — 35%  
-- HERNAN CHACON — 35%  
-- JAD EL AAWAR — 15%  
-- ZAID AYMAN SHAFIK JUMEAN — 15%
+- ADRIA FIJO GARRIGA — 25%  
+- HERNAN CHACON — 25%  
+- JAD EL AAWAR — 25%  
+- ZAID AYMAN SHAFIK JUMEAN — 25%
 
 
 **Note:** The simulator now sends valid JSON using `json.dumps`, ensuring booleans are lowercase `true/false`.
