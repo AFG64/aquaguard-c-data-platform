@@ -40,10 +40,10 @@ Scope: single-machine demo showcasing systems programming fundamentals (threads,
 
 
 ## Contributions
-- **ADRIA FIJO GARRIGA (35%)**: Software architecture, gateway threading model, report.
-- **HERNAN CHACON (35%)**: TCP client + reconnection, JSON parser, tests.
-- **JAD EL AAWAR (15%)**: Web UI design & styling.
-- **ZAID AYMAN SHAFIK JUMEAN (15%)**: Presentation & project hygiene (Conda, CI, README).
+- **ADRIA FIJO GARRIGA (25%)**: Software architecture, gateway threading model, report.
+- **HERNAN CHACON (25%)**: TCP client + reconnection, JSON parser, tests.
+- **JAD EL AAWAR (25%)**: Web UI design & styling.
+- **ZAID AYMAN SHAFIK JUMEAN (25%)**: Presentation & project hygiene (Conda, CI, README).
 
 ## AI statement
 LLMs were used for brainstorming, boilerplate (CMake, CI), and documentation drafts. The team reviewed and adapted all code for correctness and clarity.
