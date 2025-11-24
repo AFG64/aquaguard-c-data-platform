@@ -8,10 +8,12 @@
 #include "log.h"
 
 // This file is a tiny, hand-rolled parser used by the sensor thread.
-// It reads ONE line of JSON from the simulator and copies the numbers into SensorData.
+// Why custom parser? Input is a single trusted JSON line with fixed keys, so pulling a full JSON library
+// would add complexity. This scanner keeps dependencies light and is easy to debug in class.
 // The web server later reads SensorData to show the dashboard, so we keep this minimal and fast.
 
 // Move a pointer to the start of the value for a given "key:"
+// Using string search avoids heap allocations and keeps the footprint tiny.
 static const char* find_value_start(const char* s, const char* key) {
     const char* spot = strstr(s, key);
     if (!spot) return NULL;
@@ -23,7 +25,7 @@ static const char* find_value_start(const char* s, const char* key) {
     return spot;
 }
 
-// Pull a float out of the JSON line (like "12.3") for a known key
+// Pull a float out of the JSON line (like "12.3") for a known key; simple because keys are fixed.
 static int extract_float(const char* s, const char* key, float* out) {
     const char* start = find_value_start(s, key);
     if (!start) return -1;
@@ -34,7 +36,7 @@ static int extract_float(const char* s, const char* key, float* out) {
     return 0;
 }
 
-// Pull a bool-like token ("true"/"false") out of the JSON line
+// Pull a bool-like token ("true"/"false") out of the JSON line (no need for a full tokenizer).
 static int extract_bool(const char* s, const char* key, int* out) {
     const char* start = find_value_start(s, key);
     if (!start) return -1;
@@ -54,6 +56,7 @@ int parse_sensor_json(const char* line, SensorData* out) {
 
     // Start with defaults; optional fields overwrite later.
     // If the simulator skipped a value, we keep the previous one already in SensorData.
+    // This avoids marking readings as NaN and keeps the display stable.
     float flow = 0.0f;
     float hum = 0.0f;
     float temp = out->temperature_c;

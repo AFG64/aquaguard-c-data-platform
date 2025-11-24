@@ -2,6 +2,7 @@
 // This program has two jobs:
 //   1) get sensor readings (either over TCP from the simulator or generated locally)
 //   2) share those readings with the web dashboard through a small HTTP server
+// We keep two threads instead of an event loop so the code stays approachable for beginners.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,9 +35,9 @@ static void print_usage(const char* prog) {
 }
 
 // Put all the startup defaults in one spot for the shared state that EVERY thread uses:
-// - listen to simulator over TCP on localhost:5555
-// - serve web dashboard on port 8080
-// - mark sensor as disconnected until data arrives (web will show "disconnected")
+// - TCP chosen because the Python simulator already exposes a simple TCP stream (newline JSON)
+// - Web dashboard on port 8080 so it does not clash with privileged ports
+// - Start as "disconnected" so the UI reflects reality until data arrives
 static void init_defaults(SharedState* st) {
     memset(st, 0, sizeof(*st));
     pthread_mutex_init(&st->mu, NULL);
@@ -50,7 +51,7 @@ static void init_defaults(SharedState* st) {
 
 // Very direct argument parser (kept student-simple):
 // picks between TCP vs simulator and overrides ports/host if provided.
-// These values live in SharedState so both threads know where to connect or listen.
+// SharedState carries these choices so both threads see the same config.
 static void parse_args(int argc, char** argv, SharedState* st) {
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--mode") == 0 && i + 1 < argc) {
@@ -88,6 +89,7 @@ int main(int argc, char** argv) {
     // Start background threads:
     // - sensor thread pulls data (TCP or simulator) and writes into SharedState
     // - HTTP thread reads from SharedState to serve the dashboard + live updates
+    // Threads + mutex were picked over message queues to stay minimal and portable.
     pthread_t th_sensor, th_http;
     if (st.mode_tcp) {
         pthread_create(&th_sensor, NULL, sensor_thread_tcp, &st);

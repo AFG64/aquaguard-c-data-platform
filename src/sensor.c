@@ -16,9 +16,12 @@
 // It can either:
 //   1) connect over TCP to an external simulator and parse its JSON lines, or
 //   2) generate pretend readings locally (SIM mode) when no simulator is available.
-// The HTTP thread later reads SharedState to send live updates to the dashboard.
+// We use TCP (not UDP) because the Python simulator already exposes a reliable, newline-delimited TCP stream
+// and we prefer delivery guarantees over minimal latency. The HTTP thread later reads SharedState to send
+// live updates to the dashboard.
 
 // Attempt to open a TCP socket to the simulator (host:port)
+// Using getaddrinfo keeps it IPv4/IPv6 agnostic and portable across OSes.
 static int connect_tcp(const char* host, int port) {
     char portstr[16];
     snprintf(portstr, sizeof(portstr), "%d", port);
@@ -61,6 +64,7 @@ static void set_connection_status(SharedState* st, ConnectionStatus status, cons
 }
 
 // Thread: read newline-separated JSON packets from the TCP simulator.
+// Newline framing was chosen because the simulator already sends one JSON per line—no extra protocol needed.
 // Each parsed packet overwrites SharedState so the dashboard shows fresh numbers.
 void* sensor_thread_tcp(void* arg) {
     SharedState* st = (SharedState*)arg;
@@ -74,7 +78,7 @@ void* sensor_thread_tcp(void* arg) {
             set_connection_status(st, CONN_DISCONNECTED, "TCP");
             LOG_WARN("Simulator not reachable at %s:%d; retrying...", st->tcp_host, st->tcp_port);
             usleep(backoff_ms * 1000);
-            if (backoff_ms < 5000) backoff_ms *= 2; // wait a bit longer after failures
+            if (backoff_ms < 5000) backoff_ms *= 2; // exponential backoff to avoid hammering the host
             continue;
         }
 
@@ -99,7 +103,7 @@ void* sensor_thread_tcp(void* arg) {
                 char c = buf[i];
                 if (c == '\n' || idx >= max_line - 1) {
                     line[idx] = 0;
-                    SensorData tmp = st->data; // start from previous values so optional fields stay
+                    SensorData tmp = st->data; // start from previous values so optional fields stay (simulate partial updates)
                     if (parse_sensor_json(line, &tmp) == 0) {
                         tmp.conn = CONN_CONNECTED;
                         snprintf(tmp.via, sizeof(tmp.via), "TCP");
@@ -146,7 +150,8 @@ void* sensor_thread_sim(void* arg) {
     float pressure = 101.3f;
 
     for (;;) {
-        // Wander values a bit so the graph moves (adds randomness each cycle)
+        // Wander values a bit so the graph moves (adds randomness each cycle).
+        // Clamp keeps the fake readings in a believable range.
         flow = clamp(flow + ((rand() % 200 - 100) / 1000.0f), 0.f, 50.f);
         hum  = clamp(hum  + ((rand() % 200 - 100) / 1000.0f), 10.f, 90.f);
         temp = clamp(temp + ((rand() % 200 - 100) / 500.0f), -10.f, 60.f);

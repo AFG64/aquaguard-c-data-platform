@@ -18,10 +18,13 @@
 // It serves two things:
 //   1) Static files from the "web" folder (HTML/CSS/JS) so the page can load.
 //   2) Live sensor updates over Server-Sent Events at /events so the graph stays fresh.
+// We picked SSE over WebSockets to keep the protocol one-way and simple (browsers support it natively).
+// A thread-per-connection model is used here because it is easy to read; performance is fine for a demo.
 
 static const char* WEB_ROOT = "web";
 
 // Tiny helpers for serving static files (HTML/JS/CSS/images) from the web folder
+// Rolling our own here avoids pulling in a full HTTP library for a handful of routes.
 static void send_404(int fd) {
     const char* msg = "HTTP/1.1 404 Not Found\r\n"
                       "Content-Type: text/plain\r\n"
@@ -134,6 +137,7 @@ static void* handle_client(void* arg) {
 
     // Live updates via Server-Sent Events:
     // we keep the connection open and push JSON whenever sensor data changes (last_seq changes).
+    // SSE was chosen instead of polling to reduce reload latency and bandwidth.
     if (strcmp(path, "/events") == 0) {
         const char* hdr = "HTTP/1.1 200 OK\r\n"
                           "Content-Type: text/event-stream\r\n"
@@ -170,7 +174,8 @@ static void* handle_client(void* arg) {
     return NULL;
 }
 
-// Basic HTTP server that spawns a thread per client
+// Basic HTTP server that spawns a thread per client.
+// This avoids an event loop and keeps the concurrency model aligned with the sensor thread.
 void* http_server_thread(void* arg) {
     SharedState* st = (SharedState*)arg;
     int port = st->web_port;

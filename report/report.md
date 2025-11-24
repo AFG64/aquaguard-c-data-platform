@@ -6,11 +6,11 @@ Data sources:
 - **TCP Simulator (Python GUI)** on `127.0.0.1:5555`
 - **SIM mode** for synthetic generation
 
-Scope: single-machine demo showcasing systems programming fundamentals (threads, sockets, SSE, lightweight parsing).
+Scope: single-machine demo showcasing systems programming fundamentals (threads, sockets per Module VI, SSE, lightweight parsing).
 
 ## Design choices
 - **Threads**: one thread handles the sensor (TCP client + parsing), another runs the HTTP server and SSE.
-- **Networking**: POSIX sockets. The SSE endpoint (`/events`) pushes JSON updates to the browser.
+- **Networking**: POSIX sockets (Module VI). TCP client connects to the simulator; TCP server exposes HTTP + SSE. TCP was chosen over UDP for reliable delivery and because the simulator already speaks newline-delimited JSON over TCP.
 - **Parsing**: Minimal, dependency-free reader tailored to the schema (`flow_lpm`, `humidity_pct`, `temperature_c`, `pressure_kpa`, optional `flowing`). Unit-tested.
 - **State**: Shared state with mutex; `SensorData` uses `struct` + bitmask (`alerts_mask`) and `ConnectionStatus`. 
 - **Error handling**: Reconnection with backoff, resilient to malformed input, consistent UI status.
@@ -31,12 +31,13 @@ Scope: single-machine demo showcasing systems programming fundamentals (threads,
 - `CMakeLists.txt`, `environment.yml`, `scripts/run_all.sh`: Tooling to configure, build, test, and run the stack.
 
 ## Module mapping (course alignment)
-- **Module 0 – Tooling & Workflow**: `CMakeLists.txt`, `scripts/run_all.sh`, `environment.yml`, `README.md` (build/run steps), VSCode/Conda workflow.
-- **Module I – Error Handling & Debugging**: `src/json.c` (explicit return codes), `tests/test_parser.c` (unit tests), logging macros (`log.h` usage), graceful reconnects in `src/sensor.c`.
-- **Module II – Pointers & Structures**: `include/shared.h` (`struct SensorData`, pointer-based shared state), mutex-protected shared memory in `src/sensor.c`, socket pointers in `src/http.c`.
-- **Module III – File Handling & Preprocessor**: Preprocessor macros for thresholds (`include/shared.h`), header includes across modules; static file serving in `src/http.c` uses basic file I/O.
-- **Module IV – Bit Manipulation, Enums & typedef**: Alert bitmask flags (`AlertFlags`) and enums (`ConnectionStatus`) in `include/shared.h`, bitwise checks in `src/json.c` and `src/sensor.c`.
-- **Module V – Concurrent Programming**: POSIX threads for sensor and HTTP servers (`src/main.c`, `src/sensor.c`, `src/http.c`), mutex synchronization (`include/shared.h`, `src/sensor.c`), SSE as a concurrent data stream.
+- **Module 0 – Tooling & Workflow**: `CMakeLists.txt`, `scripts/run_all.sh`, `environment.yml`, `README.md` (build/run steps), VSCode/Conda workflow. Chosen to keep the build/run story consistent across macOS/Windows/Linux and lower setup friction for teammates.
+- **Module I – Error Handling & Debugging**: `src/json.c` (explicit return codes), `tests/test_parser.c` (unit tests), logging macros (`log.h` usage), graceful reconnects in `src/sensor.c`. Explicit codes + logs were favored over silent failures so the dashboard state always matches sensor status.
+- **Module II – Pointers & Structures**: `include/shared.h` (`struct SensorData`, pointer-based shared state), mutex-protected shared memory in `src/sensor.c`, socket pointers in `src/http.c`. One heap-allocated `SharedState` is shared by pointer: the sensor thread overwrites fields with fresh readings while the HTTP thread reads the same block; the mutex ensures updates don’t race, and there are no duplicate buffers eating RAM.
+- **Module III – File Handling & Preprocessor**: Preprocessor macros for thresholds (`include/shared.h`), header includes across modules; static file serving in `src/http.c` uses basic file I/O. Simple macros keep thresholds centralized; direct file reads avoid pulling an external HTTP stack.
+- **Module IV – Bit Manipulation, Enums & typedef**: Alert bitmask flags (`AlertFlags`) and enums (`ConnectionStatus`) in `include/shared.h`, bitwise checks in `src/json.c` and `src/sensor.c`. Bit flags were picked so multiple alerts coexist in one integer and are cheap to test/send to the UI.
+- **Module V – Concurrent Programming**: POSIX threads for sensor and HTTP servers (`src/main.c`, `src/sensor.c`, `src/http.c`), mutex synchronization (`include/shared.h`, `src/sensor.c`), SSE as a concurrent data stream. Two threads keep the design simple (I/O separated) while the mutex protects shared data without heavy frameworks.
+- **Module VI – Networking & Sockets in C**: TCP client in `src/sensor.c` (Berkeley sockets via `getaddrinfo`/`connect` to the simulator) and TCP server in `src/http.c` (`socket`/`bind`/`listen`/`accept` to serve HTTP + SSE). TCP was chosen over UDP for delivery guarantees and because the Python simulator already provides newline-delimited JSON over TCP. `src/main.c` holds configurable host/port defaults in `SharedState` so both threads share the networking setup.
 
 
 ## Contributions

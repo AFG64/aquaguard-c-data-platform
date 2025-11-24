@@ -64,6 +64,7 @@ When any threshold is exceeded, the dashboard shows the emergency banner with al
 - **Server-Sent Events (SSE)** stream live metrics to `/events`; the web UI updates instantly without page reloads.
 - A minimal JSON parser keeps dependencies low; a bitmask tracks active alerts (flow high/low, humidity/temp/pressure).
 - `SIGPIPE` is ignored so reloading or closing the web page never stops the gateway process.
+See `flowchart.txt` for a simple text flowchart of this pipeline.
 
 ## If the Python simulator fails with _tkinter errors (macOS Fix)
 This error usually occurs on macOS when the Python you are using does not ship with the Tk frameworks, or when Homebrew’s Python is ahead of Conda’s Python in your `PATH`.
