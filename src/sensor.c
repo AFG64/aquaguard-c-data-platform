@@ -12,9 +12,17 @@
 #include "json.h"
 #include "log.h"
 
+// This file feeds SensorData into the shared SharedState (used by both threads).
+// It can either:
+//   1) connect over TCP to an external simulator and parse its JSON lines, or
+//   2) generate pretend readings locally (SIM mode) when no simulator is available.
+// The HTTP thread later reads SharedState to send live updates to the dashboard.
+
+// Attempt to open a TCP socket to the simulator (host:port)
 static int connect_tcp(const char* host, int port) {
     char portstr[16];
     snprintf(portstr, sizeof(portstr), "%d", port);
+
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
@@ -26,13 +34,14 @@ static int connect_tcp(const char* host, int port) {
         LOG_ERR("getaddrinfo: %s", gai_strerror(rc));
         return -1;
     }
+
     int fd = -1;
     for (struct addrinfo* p = res; p; p = p->ai_next) {
         fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
         if (fd < 0) continue;
         if (connect(fd, p->ai_addr, p->ai_addrlen) == 0) {
             freeaddrinfo(res);
-            return fd;
+            return fd; // success
         }
         close(fd);
         fd = -1;
@@ -41,6 +50,18 @@ static int connect_tcp(const char* host, int port) {
     return -1;
 }
 
+// Helper to update connection fields together (with locking).
+// Also bumps last_seq so the HTTP thread knows data changed and should push an update.
+static void set_connection_status(SharedState* st, ConnectionStatus status, const char* via) {
+    pthread_mutex_lock(&st->mu);
+    st->data.conn = status;
+    if (via) snprintf(st->data.via, sizeof(st->data.via), "%s", via);
+    st->data.last_seq++;
+    pthread_mutex_unlock(&st->mu);
+}
+
+// Thread: read newline-separated JSON packets from the TCP simulator.
+// Each parsed packet overwrites SharedState so the dashboard shows fresh numbers.
 void* sensor_thread_tcp(void* arg) {
     SharedState* st = (SharedState*)arg;
     const int max_line = 1024;
@@ -50,44 +71,35 @@ void* sensor_thread_tcp(void* arg) {
     for (;;) {
         int fd = connect_tcp(st->tcp_host, st->tcp_port);
         if (fd < 0) {
-            pthread_mutex_lock(&st->mu);
-            st->data.conn = CONN_DISCONNECTED;
-            snprintf(st->data.via, sizeof(st->data.via), "TCP");
-            st->data.last_seq++;
-            pthread_mutex_unlock(&st->mu);
+            set_connection_status(st, CONN_DISCONNECTED, "TCP");
             LOG_WARN("Simulator not reachable at %s:%d; retrying...", st->tcp_host, st->tcp_port);
             usleep(backoff_ms * 1000);
-            if (backoff_ms < 5000) backoff_ms *= 2;
+            if (backoff_ms < 5000) backoff_ms *= 2; // wait a bit longer after failures
             continue;
         }
+
         LOG_INFO("Connected to simulator %s:%d", st->tcp_host, st->tcp_port);
         backoff_ms = 500;
-        // Mark connected
-        pthread_mutex_lock(&st->mu);
-        st->data.conn = CONN_CONNECTED;
-        snprintf(st->data.via, sizeof(st->data.via), "TCP");
-        st->data.last_seq++;
-        pthread_mutex_unlock(&st->mu);
+        set_connection_status(st, CONN_CONNECTED, "TCP");
 
-        // Read loop
-        char line[max_line];
+        char line[1024]; // fixed-size buffer for incoming line
         size_t idx = 0;
         for (;;) {
             ssize_t n = read(fd, buf, sizeof(buf));
             if (n <= 0) {
                 LOG_WARN("Simulator disconnected");
                 close(fd);
-                pthread_mutex_lock(&st->mu);
-                st->data.conn = CONN_DISCONNECTED;
-                st->data.last_seq++;
-                pthread_mutex_unlock(&st->mu);
-                break;
+                set_connection_status(st, CONN_DISCONNECTED, "TCP");
+                break; // reconnect loop
             }
+
+            // Collect characters until newline, then parse that line as JSON.
+            // When parsing succeeds, we store into st->data and bump last_seq to wake the HTTP thread.
             for (ssize_t i = 0; i < n; i++) {
                 char c = buf[i];
-                if (c == '\n' || idx >= max_line-1) {
+                if (c == '\n' || idx >= max_line - 1) {
                     line[idx] = 0;
-                    SensorData tmp = st->data; // copy current
+                    SensorData tmp = st->data; // start from previous values so optional fields stay
                     if (parse_sensor_json(line, &tmp) == 0) {
                         tmp.conn = CONN_CONNECTED;
                         snprintf(tmp.via, sizeof(tmp.via), "TCP");
@@ -102,7 +114,6 @@ void* sensor_thread_tcp(void* arg) {
                 }
             }
         }
-        // loop to reconnect
     }
     return NULL;
 }
@@ -123,22 +134,28 @@ static AlertFlags eval_alerts(float flow, float hum, float temp, float pressure)
     return mask;
 }
 
+// Thread: generate pretend sensor readings locally (SIM mode).
+// This lets the app run even if no TCP simulator is reachable.
 void* sensor_thread_sim(void* arg) {
     SharedState* st = (SharedState*)arg;
     srand((unsigned int)time(NULL));
+
     float flow = 2.0f;
     float hum = 40.0f;
     float temp = 22.0f;
     float pressure = 101.3f;
-    int t = 0;
+
     for (;;) {
-        flow = clamp(flow + ((rand()%200-100)/1000.0f), 0.f, 50.f);
-        hum  = clamp(hum  + ((rand()%200-100)/1000.0f), 10.f, 90.f);
-        temp = clamp(temp + ((rand()%200-100)/500.0f), -10.f, 60.f);
-        pressure = clamp(pressure + ((rand()%200-100)/500.0f), 90.f, 130.f);
+        // Wander values a bit so the graph moves (adds randomness each cycle)
+        flow = clamp(flow + ((rand() % 200 - 100) / 1000.0f), 0.f, 50.f);
+        hum  = clamp(hum  + ((rand() % 200 - 100) / 1000.0f), 10.f, 90.f);
+        temp = clamp(temp + ((rand() % 200 - 100) / 500.0f), -10.f, 60.f);
+        pressure = clamp(pressure + ((rand() % 200 - 100) / 500.0f), 90.f, 130.f);
+
         int flowing = flow > 0.5f;
         AlertFlags alerts = eval_alerts(flow, hum, temp, pressure);
 
+        // Share the latest readings with the rest of the program
         pthread_mutex_lock(&st->mu);
         st->data.flow_lpm = flow;
         st->data.humidity_pct = hum;
@@ -151,8 +168,7 @@ void* sensor_thread_sim(void* arg) {
         st->data.last_seq++;
         pthread_mutex_unlock(&st->mu);
 
-        t++;
-        usleep(400 * 1000);
+        usleep(400 * 1000); // pause ~0.4s between readings (about 2.5 updates/second)
     }
     return NULL;
 }
