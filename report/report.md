@@ -8,15 +8,14 @@ Data sources:
 
 Scope: single-machine demo showcasing systems programming fundamentals (threads, sockets per Module VI, SSE, lightweight parsing).
 
-## Design choices
-- **Threads**: one thread handles the sensor (TCP client + parsing), another runs the HTTP server and SSE.
-- **Networking**: POSIX sockets (Module VI). TCP client connects to the simulator; TCP server exposes HTTP + SSE. TCP was chosen over UDP for reliable delivery and because the simulator already speaks newline-delimited JSON over TCP.
-- **Parsing**: Minimal, dependency-free reader tailored to the schema (`flow_lpm`, `humidity_pct`, `temperature_c`, `pressure_kpa`, optional `flowing`). Unit-tested.
-- **State**: Shared state with mutex; `SensorData` uses `struct` + bitmask (`alerts_mask`) and `ConnectionStatus`. 
-- **Error handling**: Reconnection with backoff, resilient to malformed input, consistent UI status.
-- **Resilience**: Ignore `SIGPIPE` so SSE disconnects (page reloads) do not terminate the app.
-- **Design iteration**: Single-threaded → split I/O + SSE → simplified JSON + hardened reconnection + alert bitmask.
-- **Division of responsibilities**: C gateway & SSE / Python simulator / Web UI / Tests & CI.
+## Design choices (what we tried and why)
+- **Two-thread split (sensor + HTTP/SSE)**: Started single-threaded but UI updates blocked on socket reads. Switched to two threads to keep code readable: one does sensor I/O, the other serves HTTP/SSE. Pthreads chosen for portability and course alignment.
+- **Networking (TCP over UDP)**: Simulator already sends newline JSON over TCP; we needed ordered, reliable delivery. UDP was rejected (no ordering, no built-in reconnect semantics); TCP sockets via `getaddrinfo`/`connect`/`accept` match the simulator and simplify error handling.
+- **Parsing (minimal, custom)**: First drafts tried to bring a JSON lib; build pain on student machines led us to a hand-rolled scanner for fixed keys. Unit tests back it to avoid silent misparses.
+- **State model (shared struct + mutex)**: Early copies per thread caused divergence; we consolidated to one `SharedState` guarded by a mutex to prevent torn reads. Bitmask alerts keep multiple flags in one int for SSE payloads.
+- **Error handling and resilience**: Added reconnect with exponential backoff after seeing tight retry loops spam logs. Return codes everywhere (parser, socket setup) so the app can drop bad lines without crashing. Ignore `SIGPIPE` after SSE disconnects killed the process during reloads.
+- **Interface sanity**: CLI kept tiny (mode, host/ports) to reduce user error. Functions take explicit pointers/structs; no global state beyond the shared struct. SSE chosen over polling/WebSockets for a simple one-way interface that browsers support by default.
+- **Iteration path**: Single-thread → two-thread split; heavy JSON idea → minimal parser; aggressive reconnect → backoff; ad-hoc alerts → centralized bitmask/threshold macros. Documented missteps kept us honest about trade-offs.
 
 ## File-by-file overview
 - `src/main.c`: Bootstraps defaults, handles CLI flags, installs `SIGINT`/`SIGPIPE` handling, and launches the sensor and HTTP/SSE threads.
