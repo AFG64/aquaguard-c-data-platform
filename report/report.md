@@ -16,6 +16,7 @@ Scope: single-machine demo showcasing systems programming fundamentals (threads,
 - **Error handling and resilience**: Added reconnect with exponential backoff after seeing tight retry loops spam logs. Return codes everywhere (parser, socket setup) so the app can drop bad lines without crashing. Ignore `SIGPIPE` after SSE disconnects killed the process during reloads.
 - **Interface sanity**: CLI kept tiny (mode, host/ports) to reduce user error. Functions take explicit pointers/structs; no global state beyond the shared struct. SSE chosen over polling/WebSockets for a simple one-way interface that browsers support by default.
 - **Iteration path**: Single-thread → two-thread split; heavy JSON idea → minimal parser; aggressive reconnect → backoff; ad-hoc alerts → centralized bitmask/threshold macros. Documented missteps kept us honest about trade-offs.
+- **Team collaboration & lessons**: We paired on risky areas (parser, sockets) and split along interfaces (sensor/HTTP/UI/docs). Weekly syncs caught misalignments early; the main lesson was to prototype quickly (SIM mode) before integrating the Python simulator to avoid blocking on external tooling.
 
 ## Project hygiene (build, test, docs, CI)
 - **CMake**: Single `CMakeLists.txt` builds a reusable `aquaguard_lib`, the `aquaguard` binary, links pthreads, adds `_DEFAULT_SOURCE`, and exposes an optional `install` target; the same file wires up CTest so a fresh `cmake -S . -B build && cmake --build build -j` always works.
@@ -48,10 +49,10 @@ Scope: single-machine demo showcasing systems programming fundamentals (threads,
 
 
 ## Contributions
-- **ADRIA FIJO GARRIGA (25%)**: Software architecture, gateway threading model, report.
-- **HERNAN CHACON (25%)**: TCP client + reconnection, JSON parser, tests.
-- **JAD EL AAWAR (25%)**: Web UI design & styling.
-- **ZAID AYMAN SHAFIK JUMEAN (25%)**: Presentation & project hygiene (Conda, CI, README).
+- **ADRIA FIJO GARRIGA (25%)**: Architecture, threading split, CLI wiring, report drafting, and integration of SIM mode for faster iteration.
+- **HERNAN CHACON (25%)**: TCP client with reconnect/backoff, minimal JSON parser, alert bitmask logic, and parser unit tests.
+- **JAD EL AAWAR (25%)**: Web dashboard layout, SSE client wiring, styling/branding, and alert banner behavior.
+- **ZAID AYMAN SHAFIK JUMEAN (25%)**: Project hygiene (Conda env, CMake/CTest polish, CI workflow), README/troubleshooting, and presentation build.
 
 ## AI statement
 LLMs were used for brainstorming, boilerplate (CMake, CI), and documentation drafts. The team reviewed and adapted all code for correctness and clarity.
