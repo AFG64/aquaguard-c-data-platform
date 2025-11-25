@@ -31,6 +31,7 @@ Live water-safety dashboard written in **C** with a **Python GUI simulator**.
    - macOS: if compilers are missing, run `xcode-select --install`.
    - Windows: use “x64 Native Tools Command Prompt” or ensure MSVC is present; CMake will pick Ninja/Make.
    - Linux: ensure you run from the repo root and `build` exists.
+   - Run tests only later: `ctest --test-dir build --output-on-failure` from the repo root.
 
 3) **Run the Python simulator (TCP on 127.0.0.1:5555)**
    ```bash

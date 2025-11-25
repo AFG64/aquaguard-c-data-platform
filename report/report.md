@@ -17,6 +17,14 @@ Scope: single-machine demo showcasing systems programming fundamentals (threads,
 - **Interface sanity**: CLI kept tiny (mode, host/ports) to reduce user error. Functions take explicit pointers/structs; no global state beyond the shared struct. SSE chosen over polling/WebSockets for a simple one-way interface that browsers support by default.
 - **Iteration path**: Single-thread → two-thread split; heavy JSON idea → minimal parser; aggressive reconnect → backoff; ad-hoc alerts → centralized bitmask/threshold macros. Documented missteps kept us honest about trade-offs.
 
+## Project hygiene (build, test, docs, CI)
+- **CMake**: Single `CMakeLists.txt` builds a reusable `aquaguard_lib`, the `aquaguard` binary, links pthreads, adds `_DEFAULT_SOURCE`, and exposes an optional `install` target; the same file wires up CTest so a fresh `cmake -S . -B build && cmake --build build -j` always works.
+- **Tests**: `tests/test_parser.c` is registered with CTest (`ctest --test-dir build --output-on-failure`) to lock the JSON parser and alert thresholds; CI runs the tests on every push/PR.
+- **Docs**: `README.md` gives Quick Start, build/run, troubleshooting, and flow overview; `report/report.md` (this file), `flowchart.txt`, and `presentation/` back the design narrative; in-code headers describe the public surface.
+- **Git/GitHub + workflows**: `.github/workflows/ci.yml` runs configure/build/ctest on Ubuntu and macOS for pushes/PRs to keep the main branch green; `scripts/run_all.sh` drives a full demo (build + simulator + gateway) locally.
+- **Dependencies (Conda)**: `environment.yml` pins Python, Tk (for the simulator), CMake, and Make so macOS/Windows/Linux can reproduce the toolchain; C code avoids third-party libs to simplify student machines.
+- **Onboarding ease (README)**: Quick Start shows Conda creation, build, simulator, and gateway commands; troubleshooting tables highlight Tk issues and PATH fixes so new users can run the project in minutes.
+
 ## File-by-file overview
 - `src/main.c`: Bootstraps defaults, handles CLI flags, installs `SIGINT`/`SIGPIPE` handling, and launches the sensor and HTTP/SSE threads.
 - `src/sensor.c`: TCP client (or SIM generator) that parses sensor JSON, applies alert thresholds, and updates shared state under a mutex.
