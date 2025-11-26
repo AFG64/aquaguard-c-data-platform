@@ -9,6 +9,11 @@ Live water-safety dashboard written in **C** with a **Python GUI simulator**.
   - **Emergency banner** that lists all active issues and offers a “Call emergency” link
 - Clean project hygiene: CMake, tests (CTest), GitHub CI, docs, and Conda env.
 
+## Background & demo context
+- Built for the IoT Systems class: the real device is an **Arduino-based water monitoring sensor** measuring flow, temperature, humidity, pressure, and leak alerts.
+- The **Python simulator** mimics the Arduino exactly, sending the same JSON over TCP so we can demo without hardware.
+- Full pipeline shown in the presentation: **Arduino (or simulator) → C gateway → Web dashboard**; the dashboard behavior is identical with the actual IoT device.
+
 ## Quick Start
 
 1) **Set up Conda (recommended)**
