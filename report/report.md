@@ -55,4 +55,7 @@ Scope: single-machine demo showcasing systems programming fundamentals (threads,
 - **ZAID AYMAN SHAFIK JUMEAN (25%)**: Project hygiene (Conda env, CMake/CTest polish, CI workflow), README/troubleshooting, and presentation build.
 
 ## AI statement
-LLMs were used for brainstorming, boilerplate (CMake, CI), and documentation drafts. The team reviewed and adapted all code for correctness and clarity.All the web data as well as the simulator was done with AI, and we used it towards our device, but we do not want to be evaluated by that. Our work for programming course was SRC,TESTS and INCLUDE, as well as the report 
+LLMs were used for brainstorming, boilerplate (CMake, CI), and documentation drafts. The team reviewed and adapted all code for correctness and clarity.All the web data as well as the simulator was done with AI, and we used it towards our device, but we do not want to be evaluated by that. Our work for programming course was SRC,TESTS and INCLUDE, as well as the report, The Readme , Cmake lists, licence and environment. 
+
+**WEB FOLDER AND SIMULATOR_PY FOlDER WERE DONE WITH AI AND WE DONT WANT THEM TO BE EVALUATED. THE REST OF THE REPOSITORY WAS OUR WORK**
+
