@@ -22,9 +22,6 @@ C (POSIX sockets, pthreads) · CMake/CTest · Python (Tk TCP simulator) · HTML/
 
 Two-thread model: one thread maintains the TCP client to read JSON from the simulator/Arduino-equivalent, while the second serves HTTP and streams SSE events on `/events`. Parsed values populate a shared struct; alerts are computed via bitmask and pushed instantly to the UI.
 
-## Why C?
-Low-latency parsing and networking, predictable memory usage, stable multithreading with pthreads, and no cloud dependency for real-time safety monitoring.
-
 ## Quick Start
 ```bash
 conda env create -f environment.yml && conda activate aquaguard-c
