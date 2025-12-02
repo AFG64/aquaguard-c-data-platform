@@ -1,5 +1,7 @@
 # AquaGuard C Data Platform – Group 10 (IE University)
 
+**WEB FOLDER AND SIMULATOR_PY FOlDER WERE DONE WITH AI AND WE DONT WANT THEM TO BE EVALUATED. THE REST OF THE REPOSITORY WAS OUR WORK**
+
 ## Topic description
 AquaGuard is a C-based gateway that ingests line-delimited JSON sensor data and serves a live local dashboard at `http://localhost:8080`. The system reports **flow (L/min)**, **humidity (%)**, **temperature (°C)**, and **pressure (kPa)**, plus **connection status** and an **emergency banner** for threshold breaches (flow high/low, humidity, temperature, pressure).
 Data sources:
@@ -57,5 +59,5 @@ Scope: single-machine demo showcasing systems programming fundamentals (threads,
 ## AI statement
 LLMs were used for brainstorming, boilerplate (CMake, CI), and documentation drafts. The team reviewed and adapted all code for correctness and clarity.All the web data as well as the simulator was done with AI, and we used it towards our device, but we do not want to be evaluated by that. Our work for programming course was SRC,TESTS and INCLUDE, as well as the report, The Readme , Cmake lists, licence and environment. 
 
-**WEB FOLDER AND SIMULATOR_PY FOlDER WERE DONE WITH AI AND WE DONT WANT THEM TO BE EVALUATED. THE REST OF THE REPOSITORY WAS OUR WORK**
+
 
