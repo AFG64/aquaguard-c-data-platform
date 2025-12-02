@@ -1,6 +1,6 @@
 # AquaGuard C Data Platform – Group 10 (IE University)
 
-**WEB FOLDER AND SIMULATOR_PY FOlDER WERE DONE WITH AI AND WE DONT WANT THEM TO BE EVALUATED. THE REST OF THE REPOSITORY WAS OUR WORK**
+**WEB FOLDER AND SIMULATOR_PY FOLDER WERE DONE WITH AI AND WE DONT WANT THEM TO BE EVALUATED. THE REST OF THE REPOSITORY WAS OUR WORK**
 
 ## Topic description
 AquaGuard is a C-based gateway that ingests line-delimited JSON sensor data and serves a live local dashboard at `http://localhost:8080`. The system reports **flow (L/min)**, **humidity (%)**, **temperature (°C)**, and **pressure (kPa)**, plus **connection status** and an **emergency banner** for threshold breaches (flow high/low, humidity, temperature, pressure).
