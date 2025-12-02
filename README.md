@@ -1,119 +1,64 @@
-# AquaGuard C Data Platform – Group 10 (Computer Programming 1 – IE University)
+# AquaGuard C Data Platform — Live Water-Safety Dashboard
 
-Live water-safety dashboard written in **C** with a **Python GUI simulator**.
+Live C gateway with TCP/Sim ingest and SSE-powered web dashboard for real-time water safety.
 
-- Reads sensor JSON from either a **TCP simulator** (Python GUI) or an internal **SIM mode**.
-- Serves a local web dashboard at **http://localhost:8080** with:
-  - Live metrics: **flow (L/min)**, **humidity (%)**, **temperature (°C)**, and **pressure (kPa)**
-  - **Connection status** (Connected via TCP/SIM or Disconnected)
-  - **Emergency banner** that lists all active issues and offers a “Call emergency” link
-- Clean project hygiene: CMake, tests (CTest), GitHub CI, docs, and Conda env.
+## Overview
+AquaGuard ingests sensor JSON from either a Python TCP simulator or SIM mode, parses it in C, and streams live metrics to a browser via Server-Sent Events. The simulator is a drop-in replacement for the real Arduino IoT hardware, emitting the exact sensor packets (flow, humidity, temperature, pressure, leak conditions) over TCP so the C gateway and dashboard behave identically with or without the device. The dashboard tracks metrics and connection state, raising an emergency banner when thresholds are crossed using an alert bitmask. Built with production hygiene in mind: CMake build, CTest, CI, and concise dependencies.
 
-## Background & demo context
-- Built for the IoT Systems class: the real device is an **Arduino-based water monitoring sensor** measuring flow, temperature, humidity, pressure, and leak alerts.
-- The **Python simulator** mimics the Arduino exactly, sending the same JSON over TCP so we can demo without hardware.
-- Full pipeline shown in the presentation: **Arduino (or simulator) → C gateway → Web dashboard**; the dashboard behavior is identical with the actual IoT device.
+![Dashboard Screenshot](docs/images/dashboard.png)
+
+## Tech Stack
+C (POSIX sockets, pthreads) · CMake/CTest · Python (Tk TCP simulator) · HTML/CSS/JS + SSE · Conda env
+
+## Features
+- TCP mode: connect to Python simulator at `127.0.0.1:5555` (mirrors Arduino device packets).
+- SIM mode: generate internal sensor data for demos without TCP.
+- Two-thread C gateway: TCP ingest + HTTP/SSE server sharing mutex-guarded `SensorData`.
+- Alert bitmask covering flow high/low, humidity, temperature, and pressure thresholds.
+- Live dashboard at `http://localhost:8080` with connection status and emergency banner listing active issues.
+- Minimal JSON parser, `SIGPIPE` ignored so browser reloads never kill the process.
+
+## Architecture
+![Architecture Diagram](docs/images/architecture.png)
+
+Two-thread model: one thread maintains the TCP client to read JSON from the simulator/Arduino-equivalent, while the second serves HTTP and streams SSE events on `/events`. Parsed values populate a shared struct; alerts are computed via bitmask and pushed instantly to the UI.
+
+## Why C?
+Low-latency parsing and networking, predictable memory usage, stable multithreading with pthreads, and no cloud dependency for real-time safety monitoring.
 
 ## Quick Start
-
-1) **Set up Conda (recommended)**
-   ```bash
-   conda env create -f environment.yml
-   conda activate aquaguard-c
-   ```
-   - macOS (Intel & M-series): use `python` (not `python3`); install Xcode CLT: `xcode-select --install`.
-   - Windows: run from “Anaconda/Miniforge Prompt”; allow Developer Mode if CMake asks.
-   - Linux: install build tools if needed: `sudo apt-get install build-essential cmake`.
-   - `_tkinter` errors? Skip to the macOS fix section below.
-
-2) **Build**
-   ```bash
-   rm -rf build
-   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-   cmake --build build -j
-   ctest --test-dir build --output-on-failure
-   ```
-   - macOS: if compilers are missing, run `xcode-select --install`.
-   - Windows: use “x64 Native Tools Command Prompt” or ensure MSVC is present; CMake will pick Ninja/Make.
-   - Linux: ensure you run from the repo root and `build` exists.
-   - Run tests only later: `ctest --test-dir build --output-on-failure` from the repo root.
-
-3) **Run the Python simulator (TCP on 127.0.0.1:5555)**
-   ```bash
-   python simulator_py/gui_simulator.py
-   ```
-   - Use **Start Server**, adjust Flow/Humidity/Temperature/Pressure.
-   - macOS: avoid Homebrew `python3`; stay in the `aquaguard-c` env.
-   - Windows/Linux: “No module named tkinter”? Activate the env and install `tk` (see troubleshooting).
-
-4) **Run the C gateway + web dashboard**
-   ```bash
-   ./build/aquaguard --mode tcp --tcp-host 127.0.0.1 --tcp-port 5555 --web-port 8080
-   ```
-   Open http://localhost:8080
-   - If the simulator runs, status shows **Connected via TCP** with live data.
-   - If you stop/close the simulator, status flips to **Disconnected** within seconds.
-
-Alternative (no Python): `./build/aquaguard --mode sim --web-port 8080`
-
-## Alerts and safety thresholds
-- **High flow:** > 45 L/min.
-- **Low flow:** < 0.3 L/min (effectively stopped).
-- **High humidity:** Humidity > 80%.
-- **High temperature:** Temperature > 50 °C.
-- **High pressure:** Pressure > 120 kPa.
-
-When any threshold is exceeded, the dashboard shows the emergency banner with all active issues listed, highlights the metric(s) in red, and plays the alert tone. Normalize values to clear the banner.
-
-## How it works (short)
-- The **C gateway** spins up two threads: one TCP client to read JSON from the simulator and one HTTP/SSE server to push updates to the browser.
-- **Server-Sent Events (SSE)** stream live metrics to `/events`; the web UI updates instantly without page reloads.
-- A minimal JSON parser keeps dependencies low; a bitmask tracks active alerts (flow high/low, humidity/temp/pressure).
-- `SIGPIPE` is ignored so reloading or closing the web page never stops the gateway process.
-See `flowchart.txt` for a simple text flowchart of this pipeline.
-
-## If the Python simulator fails with _tkinter errors (macOS Fix)
-This error usually occurs on macOS when the Python you are using does not ship with the Tk frameworks, or when Homebrew’s Python is ahead of Conda’s Python in your `PATH`.
-
-**Fix it step by step (M-series and Intel):**
-1) Close other terminals. Open a fresh terminal and activate the env:  
-`conda activate aquaguard-c`
-2) Install Tk inside the env (already included, but safe to re-run):  
-`conda install -c conda-forge tk`
-3) Make sure you are using Conda’s Python (not Homebrew). These commands should point to your Conda install, not `/opt/homebrew` or `/usr/local`:
+```bash
+conda env create -f environment.yml && conda activate aquaguard-c
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
+./build/aquaguard --mode tcp --tcp-host 127.0.0.1 --tcp-port 5555 --web-port 8080   # gateway (TCP)
+python simulator_py/gui_simulator.py                                                 # simulator GUI -> Start Server
+# No TCP? Use ./build/aquaguard --mode sim --web-port 8080
 ```
-which python
-python -c "import sys; print(sys.executable)"
-```
-If they point to Homebrew, add Conda to the front of `PATH` in `~/.zshrc` or `~/.bashrc`:
-```
-export PATH="$HOME/miniconda3/bin:$PATH"   # or $HOME/mambaforge/bin
-```
-Then reopen the terminal and re-run `conda activate aquaguard-c`.
-4) Verify Tkinter really works before launching the simulator:
-```
-python - <<'PY'
-import tkinter as tk
-print("Tk version:", tk.TkVersion)
-root = tk.Tk()
-root.withdraw()
-root.destroy()
-print("Tkinter is OK")
-PY
-```
-You should see a version number and “Tkinter is OK”.
-5) Run the simulator with `python simulator_py/gui_simulator.py`.
+Open `http://localhost:8080` for the dashboard.
 
-**Why macOS PATH fixes matter:** Homebrew’s Python uses a different Tk location. If it is first in `PATH`, `_tkinter` cannot find the correct framework. Keeping Conda first ensures the bundled Tk is used.
+## Requirements
+- CMake 3.16+ and a C compiler with pthreads/POSIX sockets.
+- Python 3 with Tkinter for the simulator (Conda environment recommended).
+- Conda/Mamba (optional but recommended) for reproducible deps.
+- Modern browser for the dashboard.
 
-### Quick troubleshooting table
-| Symptom | What it means | How to fix |
-| --- | --- | --- |
-| `ModuleNotFoundError: No module named '_tkinter'` | You are using the wrong Python or Tk is missing. | `conda activate aquaguard-c` then `conda install -c conda-forge tk`; ensure `which python` is in Conda. |
-| `ImportError: No module named tkinter` | Tk package not available in your current Python. | Same as above; verify PATH is not pointing to `/opt/homebrew/bin/python3`. |
-| Tk GUI opens blank or crashes on launch | Mixed libraries from Homebrew Python. | Move Conda to the front of `PATH`, reopen terminal, reactivate the env. |
-| `conda activate` works but Python still points to Homebrew | Shell startup files override PATH. | Remove `alias python=python3` or Homebrew PATH exports; keep the Conda PATH line last. |
-| Still stuck | You may have multiple Pythons installed. | Uninstall or ignore Homebrew Python for this project; reinstall the Conda env and retry. |
+## Alerts & Thresholds
+- Flow high: > 45 L/min
+- Flow low: < 0.3 L/min
+- Humidity high: > 80 %
+- Temperature high: > 50 °C
+- Pressure high: > 120 kPa
+
+Threshold breaches set the alert bitmask, mark metrics in red, and display an emergency banner until values normalize.
+
+## How It Works
+- Simulator equivalence: the Python GUI emits the same JSON packets as the Arduino device, so the gateway/web app operate identically in TCP mode or with real hardware.
+- Gateway ingest: TCP thread parses JSON into shared `SensorData`, computing alert bits.
+- Web delivery: HTTP thread serves static assets and streams SSE updates on `/events`; browser updates without reloads.
+- Modes: `--mode tcp` listens to the simulator/device; `--mode sim` generates internal data for offline demos.
+
+## Screenshots
+![Live Demo](docs/images/demo.gif)
 
 ## Project Structure
 ```
@@ -127,11 +72,9 @@ You should see a version number and “Tkinter is OK”.
 │   └── shared.h
 ├── src/
 │   ├── http.c
-│   ├── json.c   <-- FIXED
+│   ├── json.c
 │   ├── main.c
 │   └── sensor.c
-├── tests/
-│   └── test_parser.c
 ├── web/
 │   ├── assets/
 │   │   └── logo.svg
@@ -140,40 +83,36 @@ You should see a version number and “Tkinter is OK”.
 │   └── app.js
 ├── simulator_py/
 │   └── gui_simulator.py
-├── presentation/
-│   ├── presentation.html
-│   ├── slides.js
-│   └── styles.css
-├── report/
-│   └── report.md
-├── .github/workflows/ci.yml
+├── tests/
+│   └── test_parser.c
 ├── environment.yml
-├── scripts/run_all.sh
+├── .github/workflows/ci.yml
 └── README.md
 ```
 
-## Project summary
-AquaGuard simulates a smart water safety network: a Python GUI streams sensor JSON over TCP, the C gateway parses and broadcasts it via SSE, and the web UI shows live metrics, connection status, and an emergency banner listing every active issue (flow high/low, humidity/temp/pressure).
+## Academic Context
+C programming project tying course modules: error handling/testing (parser checks, CTest), pointers/structs (mutexed `SensorData`), preprocessor use (threshold constants), file I/O (static asset serving), and networking/concurrency (POSIX sockets, pthreads, SSE).
 
-## Modules used
-- **Module I – Error handling & testing:** Return-code checks in the parser, reconnection warnings, and CTest coverage for JSON parsing and alert thresholds.
-- **Module II – Pointers, memory & structs:** Shared `SensorData` struct guarded by mutexes; sockets and threads use pointer-based state.
-- **Module III – Preprocessor & macros:** Threshold constants and header organization; minimal dependencies.
-- **Module IV – File I/O basics:** Static asset serving in the HTTP server; simple file reads for the web bundle.
-- **Module V – Networking & concurrency:** POSIX sockets (TCP client, HTTP/SSE server) with pthreads for sensor and web threads; SSE keeps the dashboard live without reloads.
+## Known Limitations
+- Localhost demo only; no TLS/auth.
+- Single sensor stream; no history or persistence.
+- Minimal JSON parser assumes well-formed input.
+- SSE only (no WebSocket fallback).
 
-## Common mistakes and how to avoid them
-- Using Homebrew Python first in `PATH`: keep the Conda `python` first so Tk loads correctly.
-- Forgetting to activate the Conda env: always `conda activate aquaguard-c` before running commands.
-- Running `python3` instead of `python`: the simulator expects the Conda `python` binary, not the system/Homebrew one.
-- Missing Tk package: if `_tkinter` errors appear, run `conda install -c conda-forge tk` inside the env.
+## Future Work
+- Multi-sensor ingestion with history/charts.
+- Hardened validation and telemetry.
+- Docker packaging and cross-platform binaries.
+- Optional TLS/auth and WebSocket transport.
+
+## Troubleshooting
+See `TROUBLESHOOTING.md` for full installation issues and macOS tkinter fixes.
 
 ## Credits
-**Group 10**  
-- ADRIA FIJO GARRIGA — 25%  
-- HERNAN CHACON — 25%  
-- JAD EL AAWAR — 25%  
+- ADRIA FIJO GARRIGA — 25%
+- HERNAN CHACON — 25%
+- JAD EL AAWAR — 25%
 - ZAID AYMAN SHAFIK JUMEAN — 25%
 
-
-**Note:** The simulator now sends valid JSON using `json.dumps`, ensuring booleans are lowercase `true/false`.
+## License
+MIT
