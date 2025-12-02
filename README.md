@@ -19,7 +19,6 @@ C (POSIX sockets, pthreads) · CMake/CTest · Python (Tk TCP simulator) · HTML/
 - Minimal JSON parser, `SIGPIPE` ignored so browser reloads never kill the process.
 
 ## Architecture
-![Architecture Diagram](docs/images/architecture.png)
 
 Two-thread model: one thread maintains the TCP client to read JSON from the simulator/Arduino-equivalent, while the second serves HTTP and streams SSE events on `/events`. Parsed values populate a shared struct; alerts are computed via bitmask and pushed instantly to the UI.
 
